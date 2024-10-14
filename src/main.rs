@@ -1,11 +1,19 @@
 use global_hotkey::{hotkey::{Code, HotKey, Modifiers}, GlobalHotKeyEvent, GlobalHotKeyManager};
 use std::{collections::HashMap, process::Command};
 use std::{error::Error, ptr};
-use accessibility_sys::{kAXTrustedCheckOptionPrompt, AXIsProcessTrustedWithOptions};
-use core_foundation_sys::dictionary::{CFDictionaryAddValue, CFDictionaryCreateMutable};
-use core_foundation_sys::base::{CFRelease, TCFTypeRef};
-use core_foundation_sys::number::{kCFBooleanFalse, kCFBooleanTrue};
 
+#[cfg(target_os = "macos")]
+use {
+    std::ptr,
+    accessibility_sys::{kAXTrustedCheckOptionPrompt, AXIsProcessTrustedWithOptions},
+    core_foundation_sys::{
+        dictionary::{CFDictionaryAddValue, CFDictionaryCreateMutable},
+        base::{CFRelease, TCFTypeRef},
+        number::{kCFBooleanFalse, kCFBooleanTrue},
+    },
+};
+
+#[cfg(target_os = "macos")]
 fn check_accessibility(ask_if_not_allowed: bool) -> Result<bool, Box<dyn Error>> {
     let is_allowed;
     unsafe {
@@ -35,8 +43,8 @@ struct KeyAction {
 }
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let is_macos = std::env::consts::OS == "macos";
-    if is_macos {
+    #[cfg(target_os = "macos")]
+    {
         let is_allowed = check_accessibility(true).unwrap();
         if !is_allowed {
             println!("Accessibility is not allowed. Please enable accessibility in System Preferences.");
