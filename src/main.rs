@@ -1,6 +1,32 @@
 use global_hotkey::{hotkey::{Code, HotKey, Modifiers}, GlobalHotKeyEvent, GlobalHotKeyManager};
 use std::{collections::HashMap, process::Command};
-use std::time::Duration;
+use std::{error::Error, ptr};
+use accessibility_sys::{kAXTrustedCheckOptionPrompt, AXIsProcessTrustedWithOptions};
+use core_foundation_sys::dictionary::{CFDictionaryAddValue, CFDictionaryCreateMutable};
+use core_foundation_sys::base::{CFRelease, TCFTypeRef};
+use core_foundation_sys::number::{kCFBooleanFalse, kCFBooleanTrue};
+
+fn check_accessibility(ask_if_not_allowed: bool) -> Result<bool, Box<dyn Error>> {
+    let is_allowed;
+    unsafe {
+        let options =
+            CFDictionaryCreateMutable(ptr::null_mut(), 0, std::ptr::null(), std::ptr::null());
+        let key = kAXTrustedCheckOptionPrompt;
+        let value = if ask_if_not_allowed {kCFBooleanTrue} else {kCFBooleanFalse};
+        if !options.is_null() {
+            CFDictionaryAddValue(
+                options,
+                key.as_void_ptr(),
+                value.as_void_ptr(),
+            );
+            is_allowed = AXIsProcessTrustedWithOptions(options);
+            CFRelease(options as *const _);
+        } else {
+            return Err("options is null".into());
+        }
+    }
+    Ok(is_allowed)
+}
 
 #[derive(Debug)]
 struct KeyAction {
@@ -9,6 +35,14 @@ struct KeyAction {
 }
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
+    let is_macos = std::env::consts::OS == "macos";
+    if is_macos {
+        let is_allowed = check_accessibility(true).unwrap();
+        if !is_allowed {
+            println!("Accessibility is not allowed. Please enable accessibility in System Preferences.");
+            return Ok(());
+        }
+    }
     let manager = GlobalHotKeyManager::new()?;
     
     // Simulating a configuration
