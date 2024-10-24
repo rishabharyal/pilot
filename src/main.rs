@@ -54,20 +54,20 @@ struct KeyAction {
     action: String,
 }
 
-struct App {
+struct App<'a> {
     window: Option<Window>,
     hotkey_actions: HashMap<u32, KeyAction>,
-    receiver: GlobalHotKeyEventReceiver,
+    receiver: &'a GlobalHotKeyEventReceiver,
     manager: GlobalHotKeyManager,
 }
 
-impl App {
+impl<'a> App<'a> {
     fn new() -> Result<Self, Box<dyn Error>> {
         let manager = GlobalHotKeyManager::new()?;
         let mut hotkey_actions = HashMap::new();
 
         // Initialize hotkeys
-        let alt_c = HotKey::new(Some(Modifiers::ALT), Code::KeyC);
+        let alt_c = HotKey::new(Some(Modifiers::ALT), Code::KeyO);
         let alt_a = HotKey::new(Some(Modifiers::ALT), Code::KeyA);
         let alt_p = HotKey::new(Some(Modifiers::ALT), Code::KeyP);
 
@@ -75,21 +75,21 @@ impl App {
             alt_c.id(),
             KeyAction {
                 key: alt_c,
-                action: "google-chrome-stable".to_string(),
+                action: "open -a Bruno".to_string(),
             },
         );
         hotkey_actions.insert(
             alt_a.id(),
             KeyAction {
                 key: alt_a,
-                action: "rio".to_string(),
+                action: "open -a Rio".to_string(),
             },
         );
         hotkey_actions.insert(
             alt_p.id(),
             KeyAction {
                 key: alt_p,
-                action: "bruno".to_string(),
+                action: "open -a Terminal".to_string(),
             },
         );
 
@@ -101,7 +101,7 @@ impl App {
         Ok(Self {
             window: None,
             hotkey_actions,
-            receiver: GlobalHotKeyEvent::receiver().clone(),
+            receiver: GlobalHotKeyEvent::receiver(),
             manager,
         })
     }
@@ -116,7 +116,7 @@ impl App {
     }
 }
 
-impl ApplicationHandler for App {
+impl<'a> ApplicationHandler for App<'a> {
     fn resumed(&mut self, event_loop: &ActiveEventLoop) {
         self.window = Some(
             event_loop
@@ -129,7 +129,7 @@ impl ApplicationHandler for App {
         match self.receiver.try_recv() {
             Ok(event) => {
                 let event_id = event.id();
-                println!("Hotkey event: {:?}", event_id);
+                self.handle_hotkey(event_id);
             }
             Err(_e) => {
                 // either can error occured or unregistered hotkey was pressed
